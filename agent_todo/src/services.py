@@ -6,9 +6,9 @@ from pathlib import Path
 from watchfiles import run_process
 
 from src.agents.agent_todo import AgentTodo
-from src.agents.AgentRelationships import AgentRelationships
-from src.agents.AgentMind import AgentMind
-from src.agents.AgentSchedule import AgentSchedule
+from agent_todo.src.agents.me_agent import MeAgent
+from agent_todo.src.agents.intent_agent import IntentAgent
+from agent_todo.src.agents.daily_summary_agent import DailySummaryAgent
 
 from src.client import client
 from src.functions.get_random import get_random
@@ -22,9 +22,9 @@ async def main() -> None:
     await client.start_service(
         agents=[
             AgentTodo,
-            AgentRelationships,
-            AgentMind,
-            AgentSchedule,
+            MeAgent,
+            IntentAgent,
+            DailySummaryAgent,
         ],
         workflows=[TodoExecute],
         functions=[

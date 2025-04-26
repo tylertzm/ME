@@ -4,9 +4,9 @@ import time
 
 from restack_ai import Restack
 from src.agents.agent_todo import AgentTodo
-from src.agents.AgentRelationships import AgentRelationships
-from src.agents.AgentMind import AgentMind
-from src.agents.AgentSchedule import AgentSchedule
+from agent_todo.src.agents.me_agent import MeAgent
+from agent_todo.src.agents.intent_agent import IntentAgent
+from agent_todo.src.agents.daily_summary_agent import DailySummaryAgent
 
 
 async def run_agent(client, agent_class):
@@ -24,9 +24,9 @@ async def main() -> None:
 
     agents = [
         AgentTodo,
-        AgentRelationships,
-        AgentMind,
-        AgentSchedule,
+        MeAgent,
+        IntentAgent,
+        DailySummaryAgent,
     ]
 
     # Run all agents in parallel
