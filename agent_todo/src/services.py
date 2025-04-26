@@ -5,10 +5,10 @@ from pathlib import Path
 
 from watchfiles import run_process
 
-from src.agents.agent_todo import AgentTodo
-from agent_todo.src.agents.me_agent import MeAgent
-from agent_todo.src.agents.intent_agent import IntentAgent
-from agent_todo.src.agents.daily_summary_agent import DailySummaryAgent
+from agents.agent_todo import AgentTodo
+from agents.me_agent import MeAgent
+from agents.intent_agent import IntentAgent
+from agents.daily_summary_agent import DailySummaryAgent
 
 from src.client import client
 from src.functions.get_random import get_random

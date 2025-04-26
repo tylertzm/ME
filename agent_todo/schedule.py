@@ -4,9 +4,9 @@ import time
 
 from restack_ai import Restack
 from src.agents.agent_todo import AgentTodo
-from agent_todo.src.agents.me_agent import MeAgent
-from agent_todo.src.agents.intent_agent import IntentAgent
-from agent_todo.src.agents.daily_summary_agent import DailySummaryAgent
+from src.agents.me_agent import MeAgent
+from src.agents.intent_agent import IntentAgent
+from src.agents.daily_summary_agent import DailySummaryAgent
 
 
 async def run_agent(client, agent_class):
