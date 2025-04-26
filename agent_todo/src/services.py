@@ -6,6 +6,10 @@ from pathlib import Path
 from watchfiles import run_process
 
 from src.agents.agent_todo import AgentTodo
+from src.agents.AgentRelationships import AgentRelationships
+from src.agents.AgentMind import AgentMind
+from src.agents.AgentSchedule import AgentSchedule
+
 from src.client import client
 from src.functions.get_random import get_random
 from src.functions.get_result import get_result
@@ -16,9 +20,19 @@ from src.workflows.todo_execute import TodoExecute
 
 async def main() -> None:
     await client.start_service(
-        agents=[AgentTodo],
+        agents=[
+            AgentTodo,
+            AgentRelationships,
+            AgentMind,
+            AgentSchedule,
+        ],
         workflows=[TodoExecute],
-        functions=[todo_create, get_random, get_result, llm_chat],
+        functions=[
+            todo_create,
+            get_random,
+            get_result,
+            llm_chat,
+        ],
     )
 
 
