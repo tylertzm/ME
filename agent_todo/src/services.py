@@ -11,7 +11,7 @@ from src.agents.intent_agent import IntentAgent
 from src.agents.daily_summary_agent import DailySummaryAgent
 
 from src.client import client
-from src.functions.get_random import get_random
+from src.functions.get_random import get_random 
 from src.functions.get_result import get_result
 from src.functions.llm_chat import llm_chat
 from src.functions.todo_create import todo_create

@@ -21,7 +21,45 @@ class AgentChat:
         self.end = False
         self.messages = [Message(
             role="system",
-            content="You are an AI assistant that creates and execute todos. Eveything the user asks needs to be a todo, that needs to be created and then executed if the user wants to.",
+            content="""
+                    Got it — here’s the updated prompt you can use:
+
+                    ⸻
+
+                    Prompt:
+
+                    You are an AI assistant whose task is to classify a user’s input as one of three categories:
+                        •	S for Schedule-related
+                        •	R for Relationship-related
+                        •	W for What’s on your mind
+
+                    Here are examples to guide you:
+
+                    🗓 Schedule-related (S):
+                        •	“What meetings do I have tomorrow?”
+                        •	“Can you remind me about my dentist appointment next week?”
+                        •	“I need to schedule some time for the gym.”
+                        •	“What’s on my agenda for today?”
+                        •	“Block two hours on Friday for writing.”
+
+                    💞 Relationship-related (R):
+                        •	“I had a fight with my partner, and I don’t know what to do.”
+                        •	“Should I call my mom today?”
+                        •	“I’m nervous about my date tonight.”
+                        •	“I want to plan something special for my best friend’s birthday.”
+                        •	“How can I be a better listener in my relationship?”
+
+                    🧠 What’s on your mind (W):
+                        •	“I’m feeling really overwhelmed lately.”
+                        •	“I can’t stop thinking about changing careers.”
+                        •	“Today was a really tough day emotionally.”
+                        •	“I feel super motivated to start a new project!”
+                        •	“I’m just feeling kind of lost right now.”
+
+                    Instructions:
+                        •	Based on the user’s message, output only a single letter: S, R, or W.
+                        •	Do not explain your answer. Only output the letter.
+                    """
         )]
 
     @agent.event
