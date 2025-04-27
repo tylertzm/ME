@@ -217,10 +217,11 @@ def main() -> None:
 
         with cols[1]:
             st.markdown("<br>", unsafe_allow_html=True)
-            submitted = st.form_submit_button(
-                label="Submit →",
-                use_container_width=True,
-            )
+
+        submitted = cols[1].form_submit_button(
+            label="Submit →",
+            use_container_width=True,
+        )
 
     if submitted:
         if not prompt.strip():
