@@ -296,7 +296,7 @@ def main() -> None:
     # ── Search ──
     st.divider()
 
-    st.markdown("<h3 style='text-align:center;'>Guidance</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align:center;'>Guidance (Work in Progress)</h3>", unsafe_allow_html=True)
     q = st.text_input("Talk with ME", placeholder="…", label_visibility="hidden")
     if q:
         hits = search_entries(q)
