@@ -8,10 +8,12 @@ from watchfiles import run_process
 from src.agents.agent import AgentChat
 from src.client import client
 from src.functions.llm_chat import llm_chat
+from src.agents.agent_daily import AgentDailySummary
+from src.agents.agent_talks_like_you import AgentTalksLikeYou
 
 
 async def main() -> None:
-    await client.start_service(agents=[AgentChat], functions=[llm_chat])
+    await client.start_service(agents=[AgentChat,AgentDailySummary,AgentTalksLikeYou], functions=[llm_chat])
 
 
 def run_services() -> None:
