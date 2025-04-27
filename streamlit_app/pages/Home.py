@@ -9,6 +9,7 @@ import datetime as _dt
 import itertools
 import json
 import os
+import base64
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -183,24 +184,62 @@ def _parse_time(txt: str | None) -> _dt.time:
         return _dparse.parse(txt).time()
     except Exception:
         return _dt.time(hour=12)
+    
+
+# Encode the image as base64
+def get_base64(file_path):
+    with open(file_path, "rb") as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
 
 
 # ─── Main application ──────────────────────────────────────────────────────
 def main() -> None:
     # ── Centered title ──
+    # st.markdown(
+    #     "<h1 style='text-align:center; margin-bottom:0.25rem;'>ME Journal</h1>",
+    #     unsafe_allow_html=True,
+    # )
+
+    # Add the logo and center it
+    logo_path = Path(__file__).parent / "../resources/Melogo.png"
+    logo_base64 = get_base64(logo_path)
+    if logo_path.exists():
+        logo_html = f"<img src='data:image/png;base64,{logo_base64}' style='display:block; margin:auto; width: 350px;'>"
+        st.markdown(logo_html, unsafe_allow_html=True)
+
     st.markdown(
-        "<h1 style='text-align:center; margin-bottom:0.25rem;'>ME Journal</h1>",
+        """
+        <style>
+        /* widen the whole widget container */
+        .stDateInput > div {
+            width: 100% !important;
+        }
+
+        /* beef up the text box itself */
+        .stDateInput input {
+            font-size: 1.4rem !important;   /* bigger text */
+            padding: 0.75rem 1rem !important; /* taller field */
+        }
+
+        /* make the calendar-icon button larger */
+        .stDateInput button {
+            font-size: 1.4rem !important;
+            padding: 0.5rem !important;
+        }
+        </style>
+        """,
         unsafe_allow_html=True,
     )
 
-    # ── Centered date-picker ──
+    # --- Centered, larger date-picker ---
     today = _dt.date.today()
-    col_l, col_mid, col_r = st.columns([3, 2, 2.5], gap="large")
+    col_l, col_mid, col_r = st.columns([3.5, 4, 1], gap="large")  # give the centre more space
     with col_mid:
         selected_date = st.date_input(
-            "Journal Date",
+            "Journal Date",          # keep the label for a11y
             today,
-            label_visibility="collapsed",
+            label_visibility="collapsed",  # or show it if you prefer
             key="journal_date",
         )
 
