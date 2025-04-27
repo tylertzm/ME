@@ -38,7 +38,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-css_path = Path(__file__).parent / "style.css"
+css_path = Path(__file__).parent / "../style.css"
 if css_path.exists():
     st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
 
