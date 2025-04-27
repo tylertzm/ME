@@ -290,7 +290,8 @@ def main() -> None:
 
     # ── Search ──
     st.divider()
-    st.markdown("### Knowledge Search")
+
+    st.markdown("<h3 style='text-align:center;'>Guidance</h3>", unsafe_allow_html=True)
     q = st.text_input("Talk with ME", placeholder="…")
     if q:
         hits = search_entries(q)
@@ -415,7 +416,7 @@ def _handle_clarifications(selected_date: _dt.date) -> None:
 
 def _input_form(selected_date: _dt.date, rels_all: list[dict], schedule_all: list[dict]) -> None:
     """Prompt input / scheduling form and its logic."""
-    st.markdown("### Thought Input / Scheduling")
+    st.markdown("### Memory Input")
     with st.form("prompt_form"):
         cols = st.columns([8, 2])
         prompt = cols[0].text_input(
