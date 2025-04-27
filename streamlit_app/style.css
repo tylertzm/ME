@@ -110,3 +110,12 @@ hr, .css-10trblm { border-color: var(--border) !important; margin: 2rem 0 !impor
   color: var(--fg) !important;
   border-radius: var(--radius) !important;
 }
+
+    /* Sidebar Styling */
+    [data-testid=stSidebar] {
+      background-color: #000000;  /* Darker background for the sidebar */
+      color: white;  /* White text color */
+      border-radius: 15px;  /* Rounded corners for the sidebar */
+      box-shadow: 4px 0px 8px rgba(0, 0, 0, 0.2);  /* Subtle shadow for the sidebar */
+      padding: 20px;  /* Add some padding inside the sidebar */
+  }
