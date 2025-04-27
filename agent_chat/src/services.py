@@ -14,7 +14,7 @@ from src.agents.agent_ask import AgentAsk
 
 
 async def main() -> None:
-    await client.start_service(agents=[AgentDailySummary,AgentTalksLikeYou,AgentAsk], functions=[llm_chat])
+    await client.start_service(agents=[AgentDailySummary,AgentTalksLikeYou,AgentAsk, AgentStructureResult], functions=[llm_chat])
 
 
 def run_services() -> None:
