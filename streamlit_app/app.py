@@ -124,6 +124,23 @@ def _rel_label(r: dict) -> str:
     det = ", ".join(f"{k}:{v}" for k, v in (r.get("details") or {}).items())
     return f"{role} | {det}" if det else role
 
+
+def _schedule_key(s: dict) -> str:
+    """Use the task description (lower-case) as key."""
+    return s["task"].strip().lower()
+
+
+def _dedup_schedule(events: List[dict]) -> List[dict]:
+    """
+    Keep **one entry per task**; when the task occurs again
+    with a different time, the most recent record wins.
+    """
+    dedup: Dict[str, dict] = {}
+    for ev in events:  # oldest ➜ newest
+        dedup[_schedule_key(ev)] = ev  # later items overwrite earlier
+    # sort by time for nicer display
+    return sorted(dedup.values(), key=lambda e: e["time"])
+
 # ─── main ───────────────────────────────────────────────────────────────────
 def main() -> None:
     st.markdown("<h1>ME Journal</h1>", unsafe_allow_html=True)
@@ -139,7 +156,7 @@ def main() -> None:
     # load only entries for that date
     entries = entries_by_date(selected_date)
 
-    schedule_all = list(
+    raw_schedule = list(
         itertools.chain.from_iterable(e["structured"].get("Schedule", []) for e in entries)
     )
     raw_rels_all: List[dict] = list(
@@ -147,6 +164,8 @@ def main() -> None:
             e["structured"].get("Relationships", []) for e in entries
         )
     )
+
+    schedule_all = _dedup_schedule(raw_schedule)
     rels_all = _dedup_relationships(raw_rels_all)
     mind_all = list(
         itertools.chain.from_iterable(
