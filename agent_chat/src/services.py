@@ -9,6 +9,7 @@ from src.client import client
 from src.functions.llm_chat import llm_chat
 from src.agents.agent_daily import AgentDailySummary
 from src.agents.agent_talks_like_you import AgentTalksLikeYou
+from src.agents.agent_structure_result import AgentStructureResult
 from src.agents.agent_ask import AgentAsk
 
 
