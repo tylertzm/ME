@@ -5,7 +5,6 @@ from pathlib import Path
 
 from watchfiles import run_process
 
-from src.agents.agent import AgentChat
 from src.client import client
 from src.functions.llm_chat import llm_chat
 from src.agents.agent_daily import AgentDailySummary
@@ -14,7 +13,7 @@ from src.agents.agent_ask import AgentAsk
 
 
 async def main() -> None:
-    await client.start_service(agents=[AgentChat,AgentDailySummary,AgentTalksLikeYou,AgentAsk], functions=[llm_chat])
+    await client.start_service(agents=[AgentDailySummary,AgentTalksLikeYou,AgentAsk], functions=[llm_chat])
 
 
 def run_services() -> None:
