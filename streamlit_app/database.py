@@ -16,7 +16,7 @@ from pymongo.server_api import ServerApi
 
 MONGODB_URI = os.getenv(
     "MONGODB_URI",
-    "mongodb+srv://bhanuprasanna2001:3ScAzh6pqL5gObfS@cluster0.jbnxvco.mongodb.net",
+    "mongodb+srv://bhanuprasanna2001:3ScAzh6pqL5gObfS@cluster0.jbnxvco.mongodb.net/mydatabase?retryWrites=true&w=majority&ssl=true",
 )
 DB_NAME = "me_journal"
 COLL_NAME = "entries"
