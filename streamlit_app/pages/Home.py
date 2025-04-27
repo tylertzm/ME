@@ -291,7 +291,7 @@ def main() -> None:
     # ── Search ──
     st.divider()
     st.markdown("### Knowledge Search")
-    q = st.text_input("Search your journal", placeholder="Enter search terms…")
+    q = st.text_input("Talk with ME", placeholder="…")
     if q:
         hits = search_entries(q)
         if not hits:
@@ -433,7 +433,7 @@ def _input_form(selected_date: _dt.date, rels_all: list[dict], schedule_all: lis
         st.warning("Please enter some text first.")
         st.stop()
 
-    with st.spinner("Talking to your agent…"):
+    with st.spinner("Processing…"):
         try:
             structured = _call_agent(prompt)
         except Exception as exc:
