@@ -1,6 +1,6 @@
 # Home.py
 # ─────────────────────────────────────────────────────────────────────────────
-# ME-Journal – tidy Morning / Afternoon / Evening / Night / Future layout.
+# ME-Journal – now with a confirmation-based delete workflow.
 # ─────────────────────────────────────────────────────────────────────────────
 from __future__ import annotations
 
@@ -22,6 +22,8 @@ from database import (
     entries_by_date,
     entries_with_future_events,
     purge_schedule_task,
+    purge_relationship,
+    delete_entry,
     search_entries,
 )
 
@@ -243,13 +245,6 @@ def main() -> None:
             key="journal_date",
         )
 
-    # Show the chosen date in friendly format
-    # friendly_date = f"{_ordinal(selected_date.day)} {selected_date.strftime('%B %Y')}"
-    # st.markdown(
-    #     f"<p style='text-align:center; opacity:0.75; margin-top:-0.25rem;'>{friendly_date}</p>",
-    #     unsafe_allow_html=True,
-    # )
-
     st.divider()
 
     # ── Fetch entries ──
@@ -269,6 +264,11 @@ def main() -> None:
         itertools.chain.from_iterable(e["structured"].get("Mind Space", []) for e in entries)
     )
 
+    # ── Delete-confirmation handler (stops early after action/abort) ──
+    if st.session_state.get("pending_delete"):
+        _handle_delete_confirm()
+        return  # everything else waits until delete is resolved
+
     # ── Main 3-column layout ──
     c1, c2, c3 = st.columns(3, gap="large")
     with c1:
@@ -278,9 +278,14 @@ def main() -> None:
     with c3:
         _render_mind_space(mind_all)
 
+    # ── Delete UI (in an expander to keep UI tidy) ────────────────────────
+    st.divider()
+    with st.expander("🗑️  Delete items"):
+        _delete_form(selected_date, schedule_all, rels_all, entries)
+
     st.divider()
 
-    # ── Handle pending clarifications (unchanged logic) ──
+    # ── Handle pending clarifications (unchanged logic) ───────────────────
     if st.session_state.get("await_clarify"):
         _handle_clarifications(selected_date)  # defined further below
         return  # stop early after clarification UI
@@ -301,6 +306,99 @@ def main() -> None:
             for doc in hits:
                 with st.expander(doc["prompt"][:80] + "…"):
                     st.json(doc["structured"])
+
+
+# ─── Delete-workflow helpers ───────────────────────────────────────────────
+def _delete_form(
+    selected_date: _dt.date,
+    schedule_all: list[dict],
+    rels_all: list[dict],
+    entries: list[dict],
+) -> None:
+    """Collect delete intent and trigger confirmation step."""
+    tab_sched, tab_rel, tab_ent = st.tabs(["Schedule task", "Relationship", "Entry"])
+
+    # ---- Schedule ----
+    with tab_sched:
+        if not schedule_all:
+            st.info("No schedule items.")
+        else:
+            task_to_key = {
+                f"{ev['task']} ({ev.get('event_date','—')} {ev.get('time','')})": _schedule_key(ev)
+                for ev in schedule_all
+            }
+            sel = st.selectbox("Choose a task", list(task_to_key.keys()))
+            if st.button("Mark for deletion", key="del_task_btn"):
+                st.session_state["pending_delete"] = {
+                    "type": "task",
+                    "internal_key": task_to_key[sel],
+                    "label": sel,
+                }
+                st.rerun()
+
+    # ---- Relationship ----
+    with tab_rel:
+        if not rels_all:
+            st.info("No relationships.")
+        else:
+            rel_to_key = {
+                f"{r['name']} ({_rel_label(r)})": _relationship_key(r) for r in rels_all
+            }
+            sel = st.selectbox("Choose a person", list(rel_to_key.keys()))
+            if st.button("Mark for deletion", key="del_rel_btn"):
+                st.session_state["pending_delete"] = {
+                    "type": "relationship",
+                    "internal_key": rel_to_key[sel],
+                    "label": sel,
+                }
+                st.rerun()
+
+    # ---- Entry ----
+    with tab_ent:
+        if not entries:
+            st.info("No entries for this date.")
+        else:
+            entry_to_id = {
+                f"{e['journal_date']} — {e['prompt'][:50]}": str(e["_id"]) for e in entries
+            }
+            sel = st.selectbox("Choose an entry", list(entry_to_id.keys()))
+            if st.button("Mark for deletion", key="del_entry_btn"):
+                st.session_state["pending_delete"] = {
+                    "type": "entry",
+                    "internal_key": entry_to_id[sel],
+                    "label": sel,
+                }
+                st.rerun()
+
+
+def _handle_delete_confirm() -> None:
+    """Ask the user to confirm or cancel the pending deletion."""
+    req = st.session_state["pending_delete"]
+    st.markdown(f"#### Confirm deletion")
+    st.warning(
+        f"You are about to delete **{req['label']}**.\n\n"
+        "This action cannot be undone. Are you sure?"
+    )
+    cols = st.columns(2)
+    if cols[0].button("✅ Yes, delete", use_container_width=True):
+        _execute_deletion(req)
+        st.success("Deleted successfully.")
+        st.session_state.pop("pending_delete", None)
+        st.rerun()
+    if cols[1].button("🚫 Cancel", use_container_width=True):
+        st.session_state.pop("pending_delete", None)
+        st.info("Deletion cancelled.")
+        st.rerun()
+
+
+def _execute_deletion(req: dict) -> None:
+    """Perform the actual deletion against the DB layer."""
+    if req["type"] == "task":
+        purge_schedule_task(req["internal_key"])
+    elif req["type"] == "relationship":
+        purge_relationship(req["internal_key"])
+    elif req["type"] == "entry":
+        delete_entry(req["internal_key"])
 
 
 # ─── Helper sub-functions (clarification & input form logic) ───────────────
