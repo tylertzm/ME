@@ -97,6 +97,7 @@ def main():
                 label_visibility="hidden"
             )
         with cols[2]:
+            st.markdown("<br>", unsafe_allow_html=True)
             submitted = st.form_submit_button("Submit →")
             if submitted:
                 st.success(f"Saved `{mode}` prompt: {prompt}")
