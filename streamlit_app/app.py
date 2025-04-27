@@ -1,14 +1,16 @@
 # app.py
 # ─────────────────────────────────────────────────────────────────────────────
-# Streamlit front-end for ME-Journal – with relationship disambiguation.
+# ME-Journal front-end – deduplicates people when displaying blocks.
 # ─────────────────────────────────────────────────────────────────────────────
 from __future__ import annotations
 
+import copy
 import datetime as _dt
 import itertools
 import json
 import os
 from pathlib import Path
+from typing import Dict, List, Tuple
 
 import requests
 import streamlit as st
@@ -27,17 +29,12 @@ RESTACK_ENDPOINT = (
 )
 
 # ─── page & CSS ─────────────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="ME Journal",
-    page_icon="📝",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-)
+st.set_page_config(page_title="ME Journal", page_icon="📝", layout="wide")
 css_path = Path(__file__).parent / "style.css"
 if css_path.exists():
     st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
 
-# ─── helpers ────────────────────────────────────────────────────────────────
+# ─── agent call ─────────────────────────────────────────────────────────────
 def _call_agent(prompt_text: str) -> dict:
     payload = {
         "eventName": "messages",
@@ -49,19 +46,19 @@ def _call_agent(prompt_text: str) -> dict:
     for msg in reversed(messages):
         if msg.get("role") == "assistant":
             return json.loads(msg["content"])
-    raise RuntimeError("No assistant message in Restack response")
+    raise RuntimeError("No assistant message returned")
 
-
-def _block(inner_html: str) -> None:
-    st.markdown(f"<div class='block'>{inner_html}</div>", unsafe_allow_html=True)
+# ─── HTML helpers ───────────────────────────────────────────────────────────
+def _block(html: str) -> None:
+    st.markdown(f"<div class='block'>{html}</div>", unsafe_allow_html=True)
 
 
 def _render_schedule(items: list[dict]) -> None:
     if not items:
         _block("<h3>Schedule</h3><p><em>Nothing scheduled.</em></p>")
         return
-    lis = "".join(f"<li><strong>{x['time']}</strong> – {x['task']}</li>" for x in items)
-    _block(f"<h3>Schedule</h3><ul>{lis}</ul>")
+    li = "".join(f"<li><strong>{i['time']}</strong> – {i['task']}</li>" for i in items)
+    _block(f"<h3>Schedule</h3><ul>{li}</ul>")
 
 
 def _render_relationships(items: list[dict]) -> None:
@@ -69,12 +66,12 @@ def _render_relationships(items: list[dict]) -> None:
         _block("<h3>Relationships</h3><p><em>No relationship info.</em></p>")
         return
     html = ["<h3>Relationships</h3>"]
-    for rel in items:
-        html.append(f"<p><strong>{rel['name']}</strong> — {rel.get('role','—')}<br>")
-        if details := rel.get("details"):
+    for r in items:
+        html.append(f"<p><strong>{r['name']}</strong> — {r.get('role','—')}<br>")
+        if details := r.get("details"):
             html.append("<br>".join(f"{k}: {v}" for k, v in details.items()) + "<br>")
-        if rel.get("notes"):
-            html.append("<ul>" + "".join(f"<li>{n}</li>" for n in rel["notes"]) + "</ul>")
+        if r.get("notes"):
+            html.append("<ul>" + "".join(f"<li>{n}</li>" for n in r["notes"]) + "</ul>")
         html.append("</p>")
     _block("".join(html))
 
@@ -83,169 +80,200 @@ def _render_mind_space(items: list[dict]) -> None:
     if not items:
         _block("<h3>Mind Space</h3><p><em>Mind is clear! ✨</em></p>")
         return
-    lis = "".join(f"<li>{t['thought']}</li>" for t in items)
-    _block(f"<h3>Mind Space</h3><ul>{lis}</ul>")
+    li = "".join(f"<li>{t['thought']}</li>" for t in items)
+    _block(f"<h3>Mind Space</h3><ul>{li}</ul>")
+
+# ─── relationship utils ─────────────────────────────────────────────────────
+def _relationship_key(r: dict) -> str:
+    return r["name"].strip().lower()
 
 
-# ─── ambiguity helpers ──────────────────────────────────────────────────────
-def _find_relationship_ambiguities(
-    new_rels: list[dict], existing_rels: list[dict]
-) -> list[dict]:
-    """Return list of ambiguities: {new_idx, name, options:[existing_rel,…]}."""
-    ambiguities: list[dict] = []
-    for idx, rel in enumerate(new_rels):
-        matches = [e for e in existing_rels if e["name"].lower() == rel["name"].lower()]
-        # keep only matches that differ in role or details
-        matches = [
-            m
-            for m in matches
-            if m.get("role") != rel.get("role") or m.get("details") != rel.get("details")
-        ]
-        if matches:
-            ambiguities.append(
-                {
-                    "new_idx": idx,
-                    "name": rel["name"],
-                    "options": matches,
-                }
-            )
-    return ambiguities
+def _merge_additive(existing: dict, new: dict) -> dict:
+    merged = copy.deepcopy(existing)
+    if new.get("role"):
+        merged["role"] = new["role"]
+    merged.setdefault("details", {}).update(new.get("details", {}))
+    merged.setdefault("notes", [])
+    for note in new.get("notes", []):
+        if note not in merged["notes"]:
+            merged["notes"].append(note)
+    return merged
 
 
-def _rel_as_label(r: dict) -> str:
+def _diff_conflicts(existing: dict, new: dict) -> Tuple[bool, List[str]]:
+    conflicts = []
+    if new.get("role") and existing.get("role") and new["role"] != existing["role"]:
+        conflicts.append("role")
+    for k, v in (new.get("details") or {}).items():
+        if k in existing.get("details", {}) and existing["details"][k] != v:
+            conflicts.append(f"detail:{k}")
+    return bool(conflicts), conflicts
+
+
+def _dedup_relationships(rel_list: List[dict]) -> List[dict]:
+    """Return one merged entry per person, using chronological order."""
+    result: Dict[str, dict] = {}
+    for rel in rel_list:  # oldest ➜ newest
+        key = _relationship_key(rel)
+        if key not in result:
+            result[key] = copy.deepcopy(rel)
+        else:
+            result[key] = _merge_additive(result[key], rel)
+    return list(result.values())
+
+
+def _rel_label(r: dict) -> str:
     role = r.get("role", "—")
-    details = ", ".join(f"{k}:{v}" for k, v in (r.get("details") or {}).items())
-    return f"{role} | {details}" if details else role
-
+    det = ", ".join(f"{k}:{v}" for k, v in (r.get("details") or {}).items())
+    return f"{role} | {det}" if det else role
 
 # ─── main ───────────────────────────────────────────────────────────────────
 def main() -> None:
-    # ── header ────────────────────────────────────────────────────────────
     st.markdown("<h1>ME Journal</h1>", unsafe_allow_html=True)
     st.date_input("Journal Date", _dt.date.today(), label_visibility="collapsed")
     st.divider()
 
-    # ── clarification flow state ──────────────────────────────────────────
-    clarify_mode = st.session_state.get("clarify_mode", False)
-
-    # ── display blocks using ALL entries ──────────────────────────────────
+    # load ALL entries once
     entries = all_entries()
     schedule_all = list(
         itertools.chain.from_iterable(e["structured"].get("Schedule", []) for e in entries)
     )
-    relationships_all = list(
+    raw_rels_all: List[dict] = list(
         itertools.chain.from_iterable(
             e["structured"].get("Relationships", []) for e in entries
         )
     )
+    rels_all = _dedup_relationships(raw_rels_all)
     mind_all = list(
         itertools.chain.from_iterable(
             e["structured"].get("Mind Space", []) for e in entries
         )
     )
 
-    cols = st.columns(3, gap="large")
-    with cols[0]:
+    # ── blocks ─────────────────────────────────────────────────────────────
+    c1, c2, c3 = st.columns(3, gap="large")
+    with c1:
         _render_schedule(schedule_all)
-    with cols[1]:
-        _render_relationships(relationships_all)
-    with cols[2]:
+    with c2:
+        _render_relationships(rels_all)
+    with c3:
         _render_mind_space(mind_all)
 
     st.divider()
 
-    # ── Clarification UI (if needed) ──────────────────────────────────────
-    if clarify_mode:
-        st.markdown("#### Quick clarification")
-        ambiguities = st.session_state["ambiguities"]
+    # ── pending clarification state ───────────────────────────────────────
+    if st.session_state.get("await_clarify"):
         structured = st.session_state["pending_structured"]
+        prompt_txt = st.session_state["pending_prompt"]
+        conflicts = st.session_state["conflicts"]
 
-        # Build form
+        st.markdown("#### Resolve conflicts")
         with st.form("clarify_form"):
-            selections: dict[int, str] = {}
-            for i, amb in enumerate(ambiguities):
-                new_rel = structured["Relationships"][amb["new_idx"]]
+            decisions = {}
+            for idx, info in enumerate(conflicts):
+                new_rel, ex_rel = info["new"], info["existing"]
                 label = (
-                    f"Multiple people named **{amb['name']}**. "
-                    "Which one do you mean?"
+                    f"Info about **{new_rel['name']}** conflicts with existing "
+                    "data. How should I handle it?"
                 )
                 opts = {
-                    _rel_as_label(o): f"existing:{j}"
-                    for j, o in enumerate(amb["options"])
+                    f"Update existing profile ({_rel_label(ex_rel)})": "update",
+                    "Keep as separate person": "separate",
+                    "Discard the new information": "discard",
                 }
-                opts["Create new person"] = "new"
-                choice = st.radio(
-                    label,
-                    list(opts.keys()),
-                    key=f"clarify_{i}",
-                    index=len(opts) - 1,
-                )
-                selections[amb["new_idx"]] = opts[choice]
-            submit = st.form_submit_button("Confirm")
+                choice = st.radio(label, list(opts.keys()), key=f"choice_{idx}")
+                decisions[info["new_index"]] = opts[choice]
+            confirmed = st.form_submit_button("Confirm")
 
-        # handle confirmation
-        if submit:
-            # merge / discard duplicates
-            for new_idx, decision in selections.items():
-                if decision.startswith("existing:"):
-                    # user chose an existing profile: drop new entry
-                    structured["Relationships"][new_idx] = None
-            structured["Relationships"] = [r for r in structured["Relationships"] if r]
-
-            add_entry(st.session_state["pending_prompt"], structured)
-            st.success("Saved!")
-            # clean up state
-            for k in ("clarify_mode", "ambiguities", "pending_structured", "pending_prompt"):
+        if confirmed:
+            final_rels = []
+            for idx, rel in enumerate(structured["Relationships"]):
+                decision = decisions.get(idx)
+                if decision == "discard":
+                    continue
+                if decision == "update":
+                    final_rels.append(_merge_additive(conflicts[0]["existing"], rel))
+                else:  # separate or untouched
+                    final_rels.append(rel)
+            structured["Relationships"] = final_rels
+            add_entry(prompt_txt, structured)
+            for k in ("await_clarify", "pending_structured", "pending_prompt", "conflicts"):
                 st.session_state.pop(k, None)
+            st.success("Saved!")
             st.rerun()
+        return
 
-        return  # halt normal UI until clarification resolved
-
-    # ── Thought Input form (normal flow) ──────────────────────────────────
+    # ── Thought Input form ────────────────────────────────────────────────
     st.markdown("### Thought Input")
+
     with st.form("prompt_form"):
-        cols = st.columns([1, 6, 1])
-        mode = cols[0].radio("Prompt Mode", ["add", "update"], horizontal=True)
-        prompt = cols[1].text_input(
-            "Thought prompt", placeholder="Reflect on today's achievements…",
+        cols = st.columns([8, 2])
+
+        prompt = cols[0].text_input(
+            label="Thought prompt",
+            placeholder="Reflect on today's achievements…",
             label_visibility="hidden",
         )
-        submitted = cols[2].form_submit_button("Submit →")
+
+        with cols[1]:
+            st.markdown("<br>", unsafe_allow_html=True)
+            submitted = st.form_submit_button(
+                label="Submit →",
+                use_container_width=True,
+            )
 
     if submitted:
         if not prompt.strip():
             st.warning("Please enter some text first.")
-        elif mode != "add":
-            st.info("Update mode coming soon – only 'add' is live for now.")
-        else:
-            with st.spinner("Talking to your agent…"):
-                try:
-                    structured = _call_agent(prompt)
-                except Exception as exc:  # noqa: BLE001
-                    st.error(str(exc))
-                    return
+            st.stop()
 
-            # detect ambiguities ------------------------------------------------
-            ambiguities = _find_relationship_ambiguities(
-                structured["Relationships"], relationships_all
-            )
-            if ambiguities:
-                st.session_state["clarify_mode"] = True
-                st.session_state["ambiguities"] = ambiguities
-                st.session_state["pending_structured"] = structured
-                st.session_state["pending_prompt"] = prompt
-                st.rerun()
+        with st.spinner("Talking to your agent…"):
+            try:
+                structured = _call_agent(prompt)
+            except Exception as exc:
+                st.error(str(exc))
+                st.stop()
+
+        # reconcile relationships vs deduped list
+        rel_map = {_relationship_key(r): r for r in rels_all}
+        conflicts = []
+        merged_rels = []
+
+        for idx, new_rel in enumerate(structured["Relationships"]):
+            key = _relationship_key(new_rel)
+            if key not in rel_map:
+                merged_rels.append(new_rel)
+                continue
+            existing = rel_map[key]
+            has_conflict, _ = _diff_conflicts(existing, new_rel)
+            if not has_conflict:
+                merged_rels.append(_merge_additive(existing, new_rel))
             else:
-                add_entry(prompt, structured)
-                st.success("Saved!")
-                st.rerun()
+                conflicts.append(
+                    {"new_index": idx, "new": new_rel, "existing": existing}
+                )
+                merged_rels.append(new_rel)
+
+        if conflicts:
+            st.session_state.update(
+                await_clarify=True,
+                conflicts=conflicts,
+                pending_structured=structured,
+                pending_prompt=prompt,
+            )
+            st.rerun()
+        else:
+            structured["Relationships"] = merged_rels
+            add_entry(prompt, structured)
+            st.success("Saved!")
+            st.rerun()
 
     # ── Knowledge Search ─────────────────────────────────────────────────
     st.divider()
     st.markdown("### Knowledge Search")
-    query = st.text_input("Search your journal", placeholder="Enter search terms…")
-    if query:
-        hits = search_entries(query)
+    q = st.text_input("Search your journal", placeholder="Enter search terms…")
+    if q:
+        hits = search_entries(q)
         if not hits:
             st.info("No matches found.")
         else:

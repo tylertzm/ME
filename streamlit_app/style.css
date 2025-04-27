@@ -27,19 +27,62 @@
   }
   
   /* ─── Section Blocks ──────────────────────────────────────────────────────── */
+  /* ────────────────────────────────────────────────────────────────
+   Card styling – responsive to Streamlit’s light & dark themes
+   ──────────────────────────────────────────────────────────────── */
+
+  /* ---------- helper colours pulled from Streamlit theme vars ----
+    --background-color            : main page background
+    --secondary-background-color  : card / sidebar backgrounds
+    --text-color                  : primary text colour
+  ----------------------------------------------------------------- */
+
   .block {
-    background: var(--block-bg) !important;
-    border: 1px solid var(--block-border) !important;
-    border-radius: var(--border-radius) !important;
-    padding: 1.5rem !important;
-    margin-bottom: 1.5rem !important;
-    height: 300px;           /* fixed height */
-    overflow-y: auto;        /* vertical scroll when overflow */
-    transition: transform 0.2s ease !important;
+    background: var(--secondary-background-color);
+    border: 1px solid var(--background-color);            /* blends in both themes */
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    min-height: 340px;                                    /* taller cards          */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.04);               /* subtle lift           */
+    display: flex;
+    flex-direction: column;
   }
-  .block:hover {
-    transform: translateY(-2px) !important;
-    background: #1a1a1a !important;
+
+  /* slightly different shadow for dark theme so it’s still visible */
+  [data-theme="dark"] .block {
+    box-shadow: 0 2px 4px rgba(255,255,255,0.04);
+  }
+
+  .block h3 {
+    margin: 0 0 0.75rem;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text-color);
+
+    /* section divider */
+    border-bottom: 1px solid var(--background-color);
+    padding-bottom: 0.25rem;
+  }
+
+  .block ul {
+    margin: 0;
+    padding-left: 1.25rem;
+    flex: 1 1 auto;                                       /* fill remaining height */
+  }
+
+  .block li + li,
+  .block p + p {
+    border-top: 1px solid var(--background-color);        /* item divider          */
+    margin-top: 0.6rem;
+    padding-top: 0.6rem;
+  }
+
+  .block p { margin: 0; color: var(--text-color); }
+
+  /* full-width prompt box even on narrow screens */
+  textarea,
+  input[type="text"] {
+    width: 100% !important;
   }
   
   /* ─── Inputs & Form Elements ─────────────────────────────────────────────── */
