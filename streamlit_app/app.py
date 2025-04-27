@@ -22,9 +22,9 @@ def main():
     with st.container():
         st.markdown("<h1>ME Journal</h1>", unsafe_allow_html=True)
         st.date_input(
-            "",
+            "Journal Date",                   # non-empty label for accessibility
             value=datetime.date.today(),
-            label_visibility="collapsed"
+            label_visibility="collapsed"      # still visually hidden
         )
 
     st.divider()
@@ -83,7 +83,6 @@ def main():
     with st.form("prompt_form"):
         cols = st.columns([1, 6, 1], gap="medium")
         with cols[0]:
-            st.markdown("", unsafe_allow_html=True)
             mode = st.radio(
                 "Prompt Mode",
                 options=["add", "update"],
@@ -91,16 +90,13 @@ def main():
                 horizontal=True,
                 key="prompt_mode",
             )
-            st.markdown("<div class='prompt-mode'></div>", unsafe_allow_html=True)
         with cols[1]:
-            st.markdown("<br>", unsafe_allow_html=True)
             prompt = st.text_input(
-                "text",
+                "Thought prompt",                     # non-empty, but hidden
                 placeholder="Reflect on today's achievements...",
                 label_visibility="hidden"
             )
         with cols[2]:
-            st.markdown("<br>", unsafe_allow_html=True)
             submitted = st.form_submit_button("Submit →")
             if submitted:
                 st.success(f"Saved `{mode}` prompt: {prompt}")
