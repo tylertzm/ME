@@ -39,8 +39,24 @@ class AgentStructureResult:
                             {"time": "18:00", "task": "Exercise"}
                         ],
                         "Relationships": [
-                            {"name": "Alice Smith", "role": "Friend", "details": {"birthday": "March 15", "last_met": "2 days ago"}},
-                            {"name": "Bob Johnson", "role": "Project partner", "details": {"deadline": "Friday"}}
+                            {
+                                "name": "Alice Smith", 
+                                "role": "Friend", 
+                                "details": {"birthday": "March 15", "last_met": "2 days ago"},
+                                notes: [
+                                    "Had a great talk about career plans",
+                                    "Discussed future travel plans"
+                                ]
+                            },
+                            {
+                                "name": "John Doe", 
+                                "role": "Colleague", 
+                                "details": {"project": "AI Research", "last_contact": "yesterday"},
+                                notes: [
+                                    "Discussed project updates",
+                                    "Scheduled a follow-up meeting"
+                                ]
+                            }
                         ],
                         "Mind Space": [
                             {"thought": "Need to finalize project scope"},
