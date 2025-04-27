@@ -1,0 +1,100 @@
+/* style.css */
+
+/* ─── Base & Typography ───────────────────────────────────────────────────── */
+:root {
+    --bg: #0a0a0a;
+    --block-bg: #161616;
+    --block-border: #2a2a2a;
+    --input-bg: #1a1a1a;
+    --input-border: #333;
+    --fg: #fff;
+    --accent-start: #fff;
+    --accent-end: #aaa;
+    --border-radius: 12px;
+    --padding: 1rem;
+  }
+  
+  html, body, [class*="stApp"] {
+    background: var(--bg) !important;
+    color: var(--fg) !important;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--fg) !important;
+    font-weight: 600 !important;
+    margin: 0 0 1rem 0 !important;
+  }
+  
+  /* ─── Section Blocks ──────────────────────────────────────────────────────── */
+  .block {
+    background: var(--block-bg) !important;
+    border: 1px solid var(--block-border) !important;
+    border-radius: var(--border-radius) !important;
+    padding: 1.5rem !important;
+    margin-bottom: 1.5rem !important;
+    height: 300px;           /* fixed height */
+    overflow-y: auto;        /* vertical scroll when overflow */
+    transition: transform 0.2s ease !important;
+  }
+  .block:hover {
+    transform: translateY(-2px) !important;
+    background: #1a1a1a !important;
+  }
+  
+  /* ─── Inputs & Form Elements ─────────────────────────────────────────────── */
+  .stTextInput input,
+  .stTextArea textarea,
+  .stDateInput input,
+  .stSelectbox select,
+  .stNumberInput input {
+    background: var(--input-bg) !important;
+    border: 1px solid var(--input-border) !important;
+    color: var(--fg) !important;
+    border-radius: 8px !important;
+    padding: 0.5rem 1rem !important;
+  }
+  
+  /* ─── Date Picker ───────────────────────────────────────────────────────── */
+  .stDateInput {
+    max-width: 180px !important;    /* constrain overall width */
+  }
+  .stDateInput div[role="textbox"] {
+    padding: 0.25rem !important;
+    font-size: 0.9rem !important;
+    background: var(--input-bg) !important;
+    border: 1px solid var(--input-border) !important;
+    color: var(--fg) !important;
+    border-radius: 8px !important;
+  }
+  
+  /* ─── Buttons ───────────────────────────────────────────────────────────── */
+  .stButton button {
+    background: linear-gradient(45deg, var(--accent-start), var(--accent-end)) !important;
+    color: #000 !important;
+    border: none !important;
+    padding: 0.75rem 1.5rem !important;
+    border-radius: 8px !important;
+    font-weight: 500 !important;
+    transition: all 0.2s ease !important;
+  }
+  .stButton button:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(255,255,255,0.1) !important;
+  }
+  
+  /* ─── Divider ───────────────────────────────────────────────────────────── */
+  hr, .css-10trblm {
+    border-color: var(--input-border) !important;
+    margin: 2rem 0 !important;
+  }
+  
+  /* ─── Prompt-Mode Buttons ───────────────────────────────────────────────── */
+  .prompt-mode .stRadio label {
+    background: var(--input-bg) !important;
+    border-radius: 8px !important;
+    padding: 0.5rem 1rem !important;
+    margin-right: 0.5rem !important;
+    color: var(--fg) !important;
+  }
+  
