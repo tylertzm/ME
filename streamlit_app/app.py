@@ -1,6 +1,6 @@
 # app.py
 # ─────────────────────────────────────────────────────────────────────────────
-# ME-Journal front-end – shows only today’s entries and allows date-scoped journaling.
+# ME-Journal – tidy Morning / Afternoon / Evening / Night / Future layout.
 # ─────────────────────────────────────────────────────────────────────────────
 from __future__ import annotations
 
@@ -9,28 +9,27 @@ import datetime as _dt
 import itertools
 import json
 import os
+import re
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+import dateutil.parser as _dparse
 import requests
 import streamlit as st
 
 from database import (
     add_entry,
     entries_by_date,
+    entries_with_future_events,
+    purge_schedule_task,
     search_entries,
 )
 
-# ─── Restack agent config ───────────────────────────────────────────────────
-BASE_URL = os.getenv(
-    "RESTACK_BASE_URL",
-    "https://res2tsut.clj5khk.gcp.restack.it",
-).rstrip("/")
+# ─── Restack agent config (unchanged) ────────────────────────────────────────
+BASE_URL = os.getenv("RESTACK_BASE_URL", "https://res2tsut.clj5khk.gcp.restack.it").rstrip("/")
 AGENT_ID = os.getenv("RESTACK_AGENT_ID", "d7e08832-AgentStructureResult")
 RUN_ID = os.getenv("RESTACK_RUN_ID", "01967657-63b9-7272-9413-c01c93a13c6e")
-RESTACK_ENDPOINT = (
-    f"{BASE_URL}/api/agents/AgentStructureResult/{AGENT_ID}/{RUN_ID}"
-)
+RESTACK_ENDPOINT = f"{BASE_URL}/api/agents/AgentStructureResult/{AGENT_ID}/{RUN_ID}"
 
 # ─── page & CSS ─────────────────────────────────────────────────────────────
 st.set_page_config(page_title="ME Journal", page_icon="📝", layout="wide")
@@ -38,7 +37,7 @@ css_path = Path(__file__).parent / "style.css"
 if css_path.exists():
     st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
 
-# ─── agent call ─────────────────────────────────────────────────────────────
+# ─── agent call helper ──────────────────────────────────────────────────────
 def _call_agent(prompt_text: str) -> dict:
     payload = {
         "eventName": "messages",
@@ -56,12 +55,50 @@ def _call_agent(prompt_text: str) -> dict:
 def _block(html: str) -> None:
     st.markdown(f"<div class='block'>{html}</div>", unsafe_allow_html=True)
 
-def _render_schedule(items: list[dict]) -> None:
-    if not items:
-        _block("<h3>Schedule</h3><p><em>Nothing scheduled.</em></p>")
-        return
-    li = "".join(f"<li><strong>{i['time']}</strong> – {i['task']}</li>" for i in items)
-    _block(f"<h3>Schedule</h3><ul>{li}</ul>")
+def _render_schedule(items: list[dict], selected_date: _dt.date) -> None:
+    """
+    Builds one continuous HTML string:
+       Morning
+         list OR “– No events –”
+       Afternoon
+       …
+    Sections always shown in fixed order.
+    """
+    groups = {
+        "Morning": [],
+        "Afternoon": [],
+        "Evening": [],
+        "Night": [],
+        "Future": [],
+    }
+
+    for ev in items:
+        ev_date = _parse_date(ev.get("event_date")) or selected_date
+        if ev_date > selected_date:
+            groups["Future"].append(ev)
+            continue
+
+        hour = _parse_time(ev.get("time", "12:00")).hour
+        if 5 <= hour < 12:
+            groups["Morning"].append(ev)
+        elif 12 <= hour < 17:
+            groups["Afternoon"].append(ev)
+        elif 17 <= hour < 21:
+            groups["Evening"].append(ev)
+        else:
+            groups["Night"].append(ev)
+
+    html: List[str] = ["<h3>Schedule</h3>"]
+    for section in ("Morning", "Afternoon", "Evening", "Night", "Future"):
+        html.append(f"<h4 class='sched-section'>{section}</h4><ul>")
+        if not groups[section]:
+            html.append("<li class='no-events'>— No events —</li>")
+        else:
+            for ev in groups[section]:
+                label = f"<strong>{ev['time']}</strong>" if ev.get("time") else "—"
+                html.append(f"<li>{label} – {ev['task']}</li>")
+        html.append("</ul>")
+    _block("".join(html))
 
 def _render_relationships(items: list[dict]) -> None:
     if not items:
@@ -84,99 +121,69 @@ def _render_mind_space(items: list[dict]) -> None:
     li = "".join(f"<li>{t['thought']}</li>" for t in items)
     _block(f"<h3>Mind Space</h3><ul>{li}</ul>")
 
-# ─── relationship utils ─────────────────────────────────────────────────────
-def _relationship_key(r: dict) -> str:
-    return r["name"].strip().lower()
-
-def _merge_additive(existing: dict, new: dict) -> dict:
-    merged = copy.deepcopy(existing)
-    if new.get("role"):
-        merged["role"] = new["role"]
-    merged.setdefault("details", {}).update(new.get("details", {}))
+# ─── relationship utils (unchanged) ─────────────────────────────────────────
+def _relationship_key(r: dict) -> str: return r["name"].strip().lower()
+def _merge_additive(a: dict, b: dict) -> dict:
+    merged = copy.deepcopy(a)
+    if b.get("role"): merged["role"] = b["role"]
+    merged.setdefault("details", {}).update(b.get("details", {}))
     merged.setdefault("notes", [])
-    for note in new.get("notes", []):
-        if note not in merged["notes"]:
-            merged["notes"].append(note)
+    for n in b.get("notes", []):
+        if n not in merged["notes"]: merged["notes"].append(n)
     return merged
-
-def _diff_conflicts(existing: dict, new: dict) -> Tuple[bool, List[str]]:
+def _diff_conflicts(a: dict, b: dict) -> Tuple[bool, List[str]]:
     conflicts = []
-    if new.get("role") and existing.get("role") and new["role"] != existing["role"]:
-        conflicts.append("role")
-    for k, v in (new.get("details") or {}).items():
-        if k in existing.get("details", {}) and existing["details"][k] != v:
-            conflicts.append(f"detail:{k}")
+    if a.get("role") and b.get("role") and a["role"] != b["role"]: conflicts.append("role")
+    for k, v in (b.get("details") or {}).items():
+        if k in a.get("details", {}) and a["details"][k] != v: conflicts.append(f"detail:{k}")
     return bool(conflicts), conflicts
-
-def _dedup_relationships(rel_list: List[dict]) -> List[dict]:
-    """Return one merged entry per person, using chronological order."""
-    result: Dict[str, dict] = {}
-    for rel in rel_list:  # oldest ➜ newest
-        key = _relationship_key(rel)
-        if key not in result:
-            result[key] = copy.deepcopy(rel)
-        else:
-            result[key] = _merge_additive(result[key], rel)
-    return list(result.values())
-
+def _dedup_relationships(lst: List[dict]) -> List[dict]:
+    res: Dict[str, dict] = {}
+    for r in lst:
+        k = _relationship_key(r)
+        res[k] = _merge_additive(res[k], r) if k in res else copy.deepcopy(r)
+    return list(res.values())
 def _rel_label(r: dict) -> str:
     role = r.get("role", "—")
     det = ", ".join(f"{k}:{v}" for k, v in (r.get("details") or {}).items())
     return f"{role} | {det}" if det else role
 
-
-def _schedule_key(s: dict) -> str:
-    """Use the task description (lower-case) as key."""
-    return s["task"].strip().lower()
-
-
-def _dedup_schedule(events: List[dict]) -> List[dict]:
-    """
-    Keep **one entry per task**; when the task occurs again
-    with a different time, the most recent record wins.
-    """
-    dedup: Dict[str, dict] = {}
-    for ev in events:  # oldest ➜ newest
-        dedup[_schedule_key(ev)] = ev  # later items overwrite earlier
-    # sort by time for nicer display
-    return sorted(dedup.values(), key=lambda e: e["time"])
+# ─── schedule utils ─────────────────────────────────────────────────────────
+def _schedule_key(s: dict) -> str: return s["task"].strip().lower()
+def _dedup_schedule(evs: List[dict]) -> List[dict]:
+    d: Dict[str, dict] = { _schedule_key(e): e for e in evs }
+    return sorted(d.values(), key=lambda e: (e.get("event_date") or "", e["time"]))
+def _parse_date(txt: str | None) -> _dt.date | None:
+    if not txt: return None
+    try: return _dparse.parse(txt, dayfirst=True).date()
+    except Exception: return None
+def _parse_time(txt: str | None) -> _dt.time:
+    try: return _dparse.parse(txt).time()
+    except Exception: return _dt.time(hour=12)
 
 # ─── main ───────────────────────────────────────────────────────────────────
 def main() -> None:
     st.markdown("<h1>ME Journal</h1>", unsafe_allow_html=True)
+    today = _dt.date.today()
 
-    # pick your journal date
-    selected_date = st.date_input(
-        "Journal Date",
-        _dt.date.today(),
-        label_visibility="collapsed",
-    )
+    selected_date = st.date_input("Journal Date", today, label_visibility="collapsed")
     st.divider()
 
-    # load only entries for that date
     entries = entries_by_date(selected_date)
+    if selected_date == today:
+        entries += entries_with_future_events(start=today, days_ahead=60)
 
-    raw_schedule = list(
-        itertools.chain.from_iterable(e["structured"].get("Schedule", []) for e in entries)
-    )
+    raw_schedule = list(itertools.chain.from_iterable(e["structured"].get("Schedule", []) for e in entries))
     raw_rels_all: List[dict] = list(
-        itertools.chain.from_iterable(
-            e["structured"].get("Relationships", []) for e in entries
-        )
+        itertools.chain.from_iterable(e["structured"].get("Relationships", []) for e in entries)
     )
-
     schedule_all = _dedup_schedule(raw_schedule)
     rels_all = _dedup_relationships(raw_rels_all)
-    mind_all = list(
-        itertools.chain.from_iterable(
-            e["structured"].get("Mind Space", []) for e in entries
-        )
-    )
+    mind_all = list(itertools.chain.from_iterable(e["structured"].get("Mind Space", []) for e in entries))
 
-    # ── display blocks ────────────────────────────────────────────────────────
     c1, c2, c3 = st.columns(3, gap="large")
     with c1:
-        _render_schedule(schedule_all)
+        _render_schedule(schedule_all, selected_date)
     with c2:
         _render_relationships(rels_all)
     with c3:
@@ -184,56 +191,119 @@ def main() -> None:
 
     st.divider()
 
-    # ── Handle pending clarifications for Relationships ──────────────────────
+    # ─── Handle pending clarifications ──────────────────────────────────────
     if st.session_state.get("await_clarify"):
-        structured = st.session_state["pending_structured"]
+        pending = st.session_state["pending_structured"]
         prompt_txt = st.session_state["pending_prompt"]
-        conflicts = st.session_state["conflicts"]
+        rel_conflicts = st.session_state["rel_conflicts"]
+        sched_conflicts = st.session_state["sched_conflicts"]
+        missing_sched = st.session_state["missing_sched"]
 
-        st.markdown("#### Resolve conflicts")
+        st.markdown("#### Resolve ambiguities")
         with st.form("clarify_form"):
-            decisions: dict[int, str] = {}
-            for idx, info in enumerate(conflicts):
+            decisions_rel: dict[int, str] = {}
+            decisions_sched: dict[int, str] = {}
+            fixed_sched: dict[int, dict] = {}
+
+            for idx, info in enumerate(rel_conflicts):
                 new_rel, ex_rel = info["new"], info["existing"]
                 label = (
-                    f"Info about **{new_rel['name']}** conflicts with existing "
-                    "data. How should I handle it?"
+                    f"Info about **{new_rel['name']}** conflicts with existing data."
                 )
                 opts = {
                     f"Update existing profile ({_rel_label(ex_rel)})": "update",
                     "Keep as separate person": "separate",
                     "Discard the new information": "discard",
                 }
-                choice = st.radio(label, list(opts.keys()), key=f"choice_{idx}")
-                decisions[info["new_index"]] = opts[choice]
+                choice = st.radio(label, list(opts.keys()), key=f"rel_choice_{idx}")
+                decisions_rel[info["new_index"]] = opts[choice]
+                st.markdown("---")
+
+            for idx, info in enumerate(sched_conflicts):
+                new_ev, ex_ev = info["new"], info["existing"]
+                label = (
+                    f"Task **{new_ev['task']}** already exists at {ex_ev['time']}."
+                )
+                opts = {
+                    f"Replace existing time/date with {new_ev['time']}": "update",
+                    "Keep both": "both",
+                    "Discard the new information": "discard",
+                }
+                choice = st.radio(label, list(opts.keys()), key=f"sched_choice_{idx}")
+                decisions_sched[info["new_index"]] = opts[choice]
+                st.markdown("---")
+
+            for idx in missing_sched:
+                ev = pending["Schedule"][idx]
+                st.markdown(
+                    f"Provide missing info for **{ev['task']}** "
+                    f"(leave blank to cancel this item)"
+                )
+                date_in = st.date_input(
+                    "Event date", selected_date, key=f"miss_date_{idx}", format="YYYY-MM-DD"
+                )
+                time_in = st.time_input("Time", _dt.time(hour=9), key=f"miss_time_{idx}")
+                fixed_sched[idx] = {
+                    "event_date": date_in.isoformat(),
+                    "time": time_in.strftime("%H:%M"),
+                }
+                st.markdown("---")
+
             confirmed = st.form_submit_button("Confirm")
 
         if confirmed:
             final_rels: List[dict] = []
-            for idx, rel in enumerate(structured["Relationships"]):
-                decision = decisions.get(idx)
+            for idx, rel in enumerate(pending["Relationships"]):
+                decision = decisions_rel.get(idx)
                 if decision == "discard":
                     continue
                 if decision == "update":
-                    final_rels.append(_merge_additive(conflicts[0]["existing"], rel))
-                else:  # separate or untouched
+                    final_rels.append(_merge_additive(rel_conflicts[0]["existing"], rel))
+                else:
                     final_rels.append(rel)
-            structured["Relationships"] = final_rels
-            add_entry(prompt_txt, structured, selected_date)
-            for k in ("await_clarify", "pending_structured", "pending_prompt", "conflicts"):
+
+            final_sched: List[dict] = []
+            for idx, ev in enumerate(pending["Schedule"]):
+                if idx in fixed_sched:
+                    ev.update(fixed_sched[idx])
+                    if not ev["event_date"] or not ev["time"]:
+                        continue
+
+                decision = decisions_sched.get(idx)
+                if decision == "discard":
+                    continue
+                if decision == "update":
+                    purge_schedule_task(_schedule_key(ev))
+                final_sched.append(ev)
+
+            pending["Relationships"] = final_rels
+            pending["Schedule"] = final_sched
+
+            jd = _determine_journal_date(pending, selected_date)
+            for ev in pending["Schedule"]:
+                purge_schedule_task(_schedule_key(ev))
+            add_entry(prompt_txt, pending, jd)
+
+            for k in (
+                "await_clarify",
+                "pending_structured",
+                "pending_prompt",
+                "rel_conflicts",
+                "sched_conflicts",
+                "missing_sched",
+            ):
                 st.session_state.pop(k, None)
             st.success("Saved!")
             st.rerun()
         return
 
-    # ── Thought / Schedule Input form ────────────────────────────────────────
+    # ─── Input form ─────────────────────────────────────────────────────────
     st.markdown("### Thought Input / Scheduling")
-
     with st.form("prompt_form"):
         cols = st.columns([8, 2])
         prompt = cols[0].text_input(
             label="Thought prompt",
-            placeholder="Reflect on today's achievements… or 'At 3pm call Alice'",
+            placeholder="Reflect on today… or 'At 3 pm call Alice'",
             label_visibility="hidden",
         )
         cols[1].markdown("<br>", unsafe_allow_html=True)
@@ -251,11 +321,10 @@ def main() -> None:
                 st.error(str(exc))
                 st.stop()
 
-        # reconcile relationships
-        rel_map = {_relationship_key(r): r for r in rels_all}
-        conflicts: list[dict] = []
+        # ― relationships
+        rel_conflicts: list[dict] = []
         merged_rels: list[dict] = []
-
+        rel_map = {_relationship_key(r): r for r in rels_all}
         for idx, new_rel in enumerate(structured["Relationships"]):
             key = _relationship_key(new_rel)
             if key not in rel_map:
@@ -266,26 +335,48 @@ def main() -> None:
             if not has_conflict:
                 merged_rels.append(_merge_additive(existing, new_rel))
             else:
-                conflicts.append(
+                rel_conflicts.append(
                     {"new_index": idx, "new": new_rel, "existing": existing}
                 )
                 merged_rels.append(new_rel)
 
-        if conflicts:
+        # ― schedules
+        sched_conflicts: list[dict] = []
+        missing_sched: list[int] = []
+        sched_map = {_schedule_key(e): e for e in schedule_all}
+        for idx, ev in enumerate(structured["Schedule"]):
+            if ev.get("date") and not ev.get("event_date"):
+                ev["event_date"] = _parse_date(ev["date"]).isoformat() if ev["date"] else None
+            if not ev.get("event_date") or not ev.get("time"):
+                missing_sched.append(idx)
+            elif _schedule_key(ev) in sched_map:
+                existing = sched_map[_schedule_key(ev)]
+                if existing["time"] != ev["time"] or existing.get("event_date") != ev.get("event_date"):
+                    sched_conflicts.append(
+                        {"new_index": idx, "new": ev, "existing": existing}
+                    )
+
+        needs_clarification = rel_conflicts or sched_conflicts or missing_sched
+        if needs_clarification:
             st.session_state.update(
                 await_clarify=True,
-                conflicts=conflicts,
                 pending_structured=structured,
                 pending_prompt=prompt,
+                rel_conflicts=rel_conflicts,
+                sched_conflicts=sched_conflicts,
+                missing_sched=missing_sched,
             )
             st.rerun()
         else:
             structured["Relationships"] = merged_rels
-            add_entry(prompt, structured, selected_date)
+            jd = _determine_journal_date(structured, selected_date)
+            for ev in structured["Schedule"]:
+                purge_schedule_task(_schedule_key(ev))
+            add_entry(prompt, structured, jd)
             st.success("Saved!")
             st.rerun()
 
-    # ── Knowledge Search ─────────────────────────────────────────────────
+    # ─── Search ────────────────────────────────────────────────────────────
     st.divider()
     st.markdown("### Knowledge Search")
     q = st.text_input("Search your journal", placeholder="Enter search terms…")
@@ -297,6 +388,16 @@ def main() -> None:
             for doc in hits:
                 with st.expander(doc["prompt"][:80] + "…"):
                     st.json(doc["structured"])
+
+
+# ─── helpers ────────────────────────────────────────────────────────────────
+def _determine_journal_date(structured: dict, fallback: _dt.date) -> _dt.date:
+    dates = {ev.get("event_date") for ev in structured.get("Schedule", []) if ev.get("event_date")}
+    if len(dates) == 1:
+        d = _parse_date(dates.pop())
+        if d:
+            return d
+    return fallback
 
 
 if __name__ == "__main__":

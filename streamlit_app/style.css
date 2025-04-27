@@ -1,143 +1,115 @@
 /* style.css */
-
-/* ─── Base & Typography ───────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* Dark-first palette – Streamlit’s own CSS vars still shine through.          */
+/* ─────────────────────────────────────────────────────────────────────────── */
 :root {
-    --bg: #0a0a0a;
-    --block-bg: #161616;
-    --block-border: #2a2a2a;
-    --input-bg: #1a1a1a;
-    --input-border: #333;
-    --fg: #fff;
-    --accent-start: #fff;
-    --accent-end: #aaa;
-    --border-radius: 12px;
-    --padding: 1rem;
-  }
-  
-  html, body, [class*="stApp"] {
-    background: var(--bg) !important;
-    color: var(--fg) !important;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  }
-  
-  h1, h2, h3, h4, h5, h6 {
-    color: var(--fg) !important;
-    font-weight: 600 !important;
-    margin: 0 0 1rem 0 !important;
-  }
-  
-  /* ─── Section Blocks ──────────────────────────────────────────────────────── */
-  /* ────────────────────────────────────────────────────────────────
-   Card styling – responsive to Streamlit’s light & dark themes
-   ──────────────────────────────────────────────────────────────── */
+  --bg:             #0a0a0a;
+  --block-bg:       #161616;
+  --block-border:   #2a2a2a;
+  --input-bg:       #1a1a1a;
+  --input-border:   #333;
+  --fg:             #ffffff;
+  --accent-start:   #ffffff;
+  --accent-end:     #9e9e9e;
+  --border-radius:  12px;
+  --padding:        1rem;
+}
 
-  /* ---------- helper colours pulled from Streamlit theme vars ----
-    --background-color            : main page background
-    --secondary-background-color  : card / sidebar backgrounds
-    --text-color                  : primary text colour
-  ----------------------------------------------------------------- */
+/* ─── Global text & background ───────────────────────────────────────────── */
+html, body, [class*="stApp"] {
+  background: var(--bg)  !important;
+  color:       var(--fg) !important;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
 
-  .block {
-    background: var(--secondary-background-color);
-    border: 1px solid var(--background-color);            /* blends in both themes */
-    border-radius: 8px;
-    padding: 1rem 1.25rem;
-    min-height: 340px;                                    /* taller cards          */
-    box-shadow: 0 2px 4px rgba(0,0,0,0.04);               /* subtle lift           */
-    display: flex;
-    flex-direction: column;
-  }
+h1, h2, h3, h4, h5, h6 {
+  color: var(--fg) !important;
+  font-weight: 600 !important;
+  margin: 0 0 1rem 0 !important;
+}
 
-  /* slightly different shadow for dark theme so it’s still visible */
-  [data-theme="dark"] .block {
-    box-shadow: 0 2px 4px rgba(255,255,255,0.04);
-  }
+/* ─── Card blocks ────────────────────────────────────────────────────────── */
+.block {
+  background: var(--secondary-background-color);
+  border: 1px solid var(--background-color);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  min-height: 340px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+  display: flex;
+  flex-direction: column;
+}
+[data-theme="dark"] .block { box-shadow: 0 2px 4px rgba(255,255,255,0.04); }
 
-  .block h3 {
-    margin: 0 0 0.75rem;
-    font-size: 1.15rem;
-    font-weight: 600;
-    color: var(--text-color);
+.block h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-color);
+  border-bottom: 1px solid var(--background-color);
+  padding-bottom: 0.25rem;
+}
 
-    /* section divider */
-    border-bottom: 1px solid var(--background-color);
-    padding-bottom: 0.25rem;
-  }
+.block ul { margin: 0; padding-left: 1.25rem; flex: 1 1 auto; }
+.block li + li,
+.block p  + p  {
+  border-top: 1px solid var(--background-color);
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+}
 
-  .block ul {
-    margin: 0;
-    padding-left: 1.25rem;
-    flex: 1 1 auto;                                       /* fill remaining height */
-  }
+.block p { margin: 0; color: var(--text-color); }
 
-  .block li + li,
-  .block p + p {
-    border-top: 1px solid var(--background-color);        /* item divider          */
-    margin-top: 0.6rem;
-    padding-top: 0.6rem;
-  }
+/* ── Schedule section headings & “no events” text ───────────────────────── */
+.sched-section {
+  margin: 0.4rem 0 0.2rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--accent-start);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.no-events { opacity: 0.55; font-style: italic; list-style: none; }
 
-  .block p { margin: 0; color: var(--text-color); }
+/* ─── Inputs & buttons ──────────────────────────────────────────────────── */
+textarea, input[type="text"] { width: 100% !important; }
 
-  /* full-width prompt box even on narrow screens */
-  textarea,
-  input[type="text"] {
-    width: 100% !important;
-  }
-  
-  /* ─── Inputs & Form Elements ─────────────────────────────────────────────── */
-  .stTextInput input,
-  .stTextArea textarea,
-  .stDateInput input,
-  .stSelectbox select,
-  .stNumberInput input {
-    background: var(--input-bg) !important;
-    border: 1px solid var(--input-border) !important;
-    color: var(--fg) !important;
-    border-radius: 8px !important;
-    padding: 0.5rem 1rem !important;
-  }
-  
-  /* ─── Date Picker ───────────────────────────────────────────────────────── */
-  .stDateInput {
-    max-width: 180px !important;    /* constrain overall width */
-  }
-  .stDateInput div[role="textbox"] {
-    padding: 0.25rem !important;
-    font-size: 0.9rem !important;
-    background: var(--input-bg) !important;
-    border: 1px solid var(--input-border) !important;
-    color: var(--fg) !important;
-    border-radius: 8px !important;
-  }
-  
-  /* ─── Buttons ───────────────────────────────────────────────────────────── */
-  .stButton button {
-    background: linear-gradient(45deg, var(--accent-start), var(--accent-end)) !important;
-    color: #000 !important;
-    border: none !important;
-    padding: 0.75rem 1.5rem !important;
-    border-radius: 8px !important;
-    font-weight: 500 !important;
-    transition: all 0.2s ease !important;
-  }
-  .stButton button:hover {
-    transform: translateY(-1px) !important;
-    box-shadow: 0 4px 12px rgba(255,255,255,0.1) !important;
-  }
-  
-  /* ─── Divider ───────────────────────────────────────────────────────────── */
-  hr, .css-10trblm {
-    border-color: var(--input-border) !important;
-    margin: 2rem 0 !important;
-  }
-  
-  /* ─── Prompt-Mode Buttons ───────────────────────────────────────────────── */
-  .prompt-mode .stRadio label {
-    background: var(--input-bg) !important;
-    border-radius: 8px !important;
-    padding: 0.5rem 1rem !important;
-    margin-right: 0.5rem !important;
-    color: var(--fg) !important;
-  }
-  
+.stTextInput input,
+.stTextArea textarea,
+.stDateInput input,
+.stSelectbox select,
+.stNumberInput input {
+  background: var(--input-bg) !important;
+  border: 1px solid var(--input-border) !important;
+  color: var(--fg) !important;
+  border-radius: 8px !important;
+  padding: 0.5rem 1rem !important;
+}
+
+.stButton button {
+  background: linear-gradient(45deg, var(--accent-start), var(--accent-end)) !important;
+  color: #000 !important;
+  border: none !important;
+  padding: 0.75rem 1.5rem !important;
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+}
+.stButton button:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(255,255,255,0.1) !important;
+}
+
+/* ─── Divider line ─────────────────────────────────────────────────────── */
+hr, .css-10trblm { border-color: var(--input-border) !important; margin: 2rem 0 !important; }
+
+/* ─── Date-picker size tweak ────────────────────────────────────────────── */
+.stDateInput       { max-width: 180px !important; }
+.stDateInput div[role="textbox"] {
+  padding: 0.25rem !important;
+  font-size: 0.9rem !important;
+  background: var(--input-bg) !important;
+  border: 1px solid var(--input-border) !important;
+  color: var(--fg) !important;
+  border-radius: 8px !important;
+}
