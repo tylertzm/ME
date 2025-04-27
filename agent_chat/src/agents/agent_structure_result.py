@@ -17,7 +17,7 @@ class EndEvent(BaseModel):
 
 class GetMessagesEvent(BaseModel):
     # Empty model for the GET request
-    pass
+    messages: list[Message]
 
 
 @agent.defn()
