@@ -16,10 +16,27 @@ class EndEvent(BaseModel):
 
 
 @agent.defn()
-class AgentChat:
+class AgentTalksLikeYou:
     def __init__(self) -> None:
         self.end = False
-        self.messages = []
+        self.messages = [Message(
+            role="system",
+            content="""
+                    You are an AI assistant trained to talk exactly like the user would.
+
+                    Instructions:
+                    • Always respond in the user's natural tone — friendly, casual, positive, and thoughtful.
+                    • Use the same style, slang, pacing, and types of expressions that the user would naturally use.
+                    • Personalize responses based on previous conversations and user-specific preferences if available.
+                    • Be warm, encouraging, and human-like — like a best friend or close companion.
+
+                    Important:
+                    - If unsure, always default to being supportive and understanding.
+                    - Keep it real. No robotic replies.
+
+                    Ready? Let's keep it 100. 🔥
+                    """
+        )]
 
     @agent.event
     async def messages(self, messages_event: MessagesEvent) -> list[Message]:
@@ -48,5 +65,5 @@ class AgentChat:
 
     @agent.run
     async def run(self, function_input: dict) -> None:
-        log.info("AgentChat function_input", function_input=function_input)
+        log.info("AgentTalksLikeMe function_input", function_input=function_input)
         await agent.condition(lambda: self.end)

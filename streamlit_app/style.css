@@ -1,100 +1,112 @@
-/* style.css */
+/* style.css ─ Monochrome, monospace, minimal */
+/* ─────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&display=swap');
 
-/* ─── Base & Typography ───────────────────────────────────────────────────── */
 :root {
-    --bg: #0a0a0a;
-    --block-bg: #161616;
-    --block-border: #2a2a2a;
-    --input-bg: #1a1a1a;
-    --input-border: #333;
-    --fg: #fff;
-    --accent-start: #fff;
-    --accent-end: #aaa;
-    --border-radius: 12px;
-    --padding: 1rem;
-  }
-  
-  html, body, [class*="stApp"] {
-    background: var(--bg) !important;
-    color: var(--fg) !important;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  }
-  
-  h1, h2, h3, h4, h5, h6 {
-    color: var(--fg) !important;
-    font-weight: 600 !important;
-    margin: 0 0 1rem 0 !important;
-  }
-  
-  /* ─── Section Blocks ──────────────────────────────────────────────────────── */
-  .block {
-    background: var(--block-bg) !important;
-    border: 1px solid var(--block-border) !important;
-    border-radius: var(--border-radius) !important;
-    padding: 1.5rem !important;
-    margin-bottom: 1.5rem !important;
-    height: 300px;           /* fixed height */
-    overflow-y: auto;        /* vertical scroll when overflow */
-    transition: transform 0.2s ease !important;
-  }
-  .block:hover {
-    transform: translateY(-2px) !important;
-    background: #1a1a1a !important;
-  }
-  
-  /* ─── Inputs & Form Elements ─────────────────────────────────────────────── */
-  .stTextInput input,
-  .stTextArea textarea,
-  .stDateInput input,
-  .stSelectbox select,
-  .stNumberInput input {
-    background: var(--input-bg) !important;
-    border: 1px solid var(--input-border) !important;
-    color: var(--fg) !important;
-    border-radius: 8px !important;
-    padding: 0.5rem 1rem !important;
-  }
-  
-  /* ─── Date Picker ───────────────────────────────────────────────────────── */
-  .stDateInput {
-    max-width: 180px !important;    /* constrain overall width */
-  }
-  .stDateInput div[role="textbox"] {
-    padding: 0.25rem !important;
-    font-size: 0.9rem !important;
-    background: var(--input-bg) !important;
-    border: 1px solid var(--input-border) !important;
-    color: var(--fg) !important;
-    border-radius: 8px !important;
-  }
-  
-  /* ─── Buttons ───────────────────────────────────────────────────────────── */
-  .stButton button {
-    background: linear-gradient(45deg, var(--accent-start), var(--accent-end)) !important;
-    color: #000 !important;
-    border: none !important;
-    padding: 0.75rem 1.5rem !important;
-    border-radius: 8px !important;
-    font-weight: 500 !important;
-    transition: all 0.2s ease !important;
-  }
-  .stButton button:hover {
-    transform: translateY(-1px) !important;
-    box-shadow: 0 4px 12px rgba(255,255,255,0.1) !important;
-  }
-  
-  /* ─── Divider ───────────────────────────────────────────────────────────── */
-  hr, .css-10trblm {
-    border-color: var(--input-border) !important;
-    margin: 2rem 0 !important;
-  }
-  
-  /* ─── Prompt-Mode Buttons ───────────────────────────────────────────────── */
-  .prompt-mode .stRadio label {
-    background: var(--input-bg) !important;
-    border-radius: 8px !important;
-    padding: 0.5rem 1rem !important;
-    margin-right: 0.5rem !important;
-    color: var(--fg) !important;
-  }
-  
+  --bg:          #000;   /* page background   */
+  --fg:          #fff;   /* foreground text   */
+  --block-bg:    #0d0d0d;
+  --border:      #333;
+  --radius:      6px;
+  --pad:         1rem;
+}
+
+/* ─── Global ───────────────────────────────────────────────────────────────*/
+html, body, [class*="stApp"] {
+  background: var(--bg) !important;
+  color:       var(--fg) !important;
+  font-family: monospace, 'Fira Code', Menlo, Consolas, !important;
+  font-size:   15px;
+  line-height: 1.55;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--fg) !important;
+  font-weight: 600;
+  margin: 0 0 1rem 0;
+  letter-spacing: .03em;
+}
+
+/* clickable links stay monochrome */
+a { color: var(--fg) !important; text-decoration: underline; }
+
+/* ─── Content “cards” ───────────────────────────────────────────────────── */
+.block {
+  background: var(--block-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--pad);
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
+.block h3 {
+  margin: 0;
+  font-size: 2rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: .35rem;
+}
+
+.block ul { margin: 0; padding-left: 1.25rem; }
+
+.block li + li,
+.block p  + p  {
+  border-top: 1px solid var(--border);
+  margin-top: .5rem;
+  padding-top: .5rem;
+}
+
+/* ─── Schedule headings & “no events” ───────────────────────────────────── */
+.sched-section {
+  margin: .35rem 0;
+  font-size: .9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.no-events { opacity: .5; font-style: italic; list-style: none; }
+
+/* ─── Inputs & buttons ──────────────────────────────────────────────────── */
+textarea, input[type="text"] { width: 100% !important; }
+
+.stTextInput input,
+.stTextArea textarea,
+.stDateInput input,
+.stSelectbox select,
+.stNumberInput input {
+  background: var(--bg) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--fg) !important;
+  border-radius: var(--radius) !important;
+  padding: .45rem .75rem !important;
+  font-family: inherit !important;
+}
+
+.stButton button {
+  background: var(--fg) !important;
+  color: var(--bg) !important;
+  border: 1px solid var(--fg) !important;
+  border-radius: var(--radius) !important;
+  padding: .5rem 1.25rem !important;
+  font-weight: 600 !important;
+  transition: all .2s ease;
+}
+.stButton button:hover {
+  background: var(--bg) !important;
+  color: var(--fg) !important;
+}
+
+/* ─── Dividers & misc. tweaks ───────────────────────────────────────────── */
+hr, .css-10trblm { border-color: var(--border) !important; margin: 2rem 0 !important; }
+
+.stDateInput            { max-width: 180px !important; }
+.stDateInput div[role="textbox"] {
+  padding: .3rem .5rem !important;
+  font-size: .9rem !important;
+  background: var(--bg) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--fg) !important;
+  border-radius: var(--radius) !important;
+}
