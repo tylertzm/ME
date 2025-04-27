@@ -22,35 +22,30 @@ DB_NAME = "me_journal"
 COLL_NAME = "entries"
 
 _client: MongoClient = MongoClient(MONGODB_URI, server_api=ServerApi("1"))
-_client.admin.command("ping")  # raises if fails
+_client.admin.command("ping")
 
 _db: Database = _client[DB_NAME]
 _entries: Collection = _db[COLL_NAME]
 
 # ─── public helpers ─────────────────────────────────────────────────────────
 def add_entry(prompt: str, structured: Dict[str, Any]) -> str:
-    """Insert a new journal entry."""
     doc = {
         "prompt": prompt,
         "structured": structured,
         "created_at": datetime.utcnow(),
     }
-    res = _entries.insert_one(doc)
-    return str(res.inserted_id)
+    return str(_entries.insert_one(doc).inserted_id)
 
 
 def latest_entry() -> Dict[str, Any] | None:
-    """Return the most recent entry or None."""
     return _entries.find_one(sort=[("created_at", -1)])
 
 
 def all_entries() -> List[Dict[str, Any]]:
-    """Return every entry (oldest ➜ newest)."""
     return list(_entries.find().sort("created_at", 1))
 
 
 def search_entries(q: str, limit: int = 10) -> List[Dict[str, Any]]:
-    """Simple text search across prompt + mind space."""
     regex = {"$regex": q, "$options": "i"}
     cur = _entries.find(
         {

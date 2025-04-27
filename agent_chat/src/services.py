@@ -10,11 +10,12 @@ from src.functions.llm_chat import llm_chat
 from src.agents.agent_daily import AgentDailySummary
 from src.agents.agent_talks_like_you import AgentTalksLikeYou
 from src.agents.agent_structure_result import AgentStructureResult
+from src.agents.agent_relationship_clarifier import AgentRelationshipClarifier
 from src.agents.agent_ask import AgentAsk
 
 
 async def main() -> None:
-    await client.start_service(agents=[AgentDailySummary,AgentTalksLikeYou,AgentAsk, AgentStructureResult], functions=[llm_chat])
+    await client.start_service(agents=[AgentDailySummary,AgentTalksLikeYou,AgentAsk, AgentStructureResult, AgentRelationshipClarifier], functions=[llm_chat])
 
 
 def run_services() -> None:
