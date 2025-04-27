@@ -16,7 +16,7 @@ class EndEvent(BaseModel):
 
 
 @agent.defn()
-class AgentTalksLikeYou:
+class AgentStructureResult:
     def __init__(self) -> None:
         self.end = False
         self.messages = [Message(
