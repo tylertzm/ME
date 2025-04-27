@@ -1,6 +1,6 @@
 # app.py
 # ─────────────────────────────────────────────────────────────────────────────
-# ME-Journal front-end – deduplicates people when displaying blocks.
+# ME-Journal front-end – shows only today’s entries and allows date-scoped journaling.
 # ─────────────────────────────────────────────────────────────────────────────
 from __future__ import annotations
 
@@ -15,7 +15,11 @@ from typing import Dict, List, Tuple
 import requests
 import streamlit as st
 
-from database import add_entry, all_entries, search_entries
+from database import (
+    add_entry,
+    entries_by_date,
+    search_entries,
+)
 
 # ─── Restack agent config ───────────────────────────────────────────────────
 BASE_URL = os.getenv(
@@ -52,14 +56,12 @@ def _call_agent(prompt_text: str) -> dict:
 def _block(html: str) -> None:
     st.markdown(f"<div class='block'>{html}</div>", unsafe_allow_html=True)
 
-
 def _render_schedule(items: list[dict]) -> None:
     if not items:
         _block("<h3>Schedule</h3><p><em>Nothing scheduled.</em></p>")
         return
     li = "".join(f"<li><strong>{i['time']}</strong> – {i['task']}</li>" for i in items)
     _block(f"<h3>Schedule</h3><ul>{li}</ul>")
-
 
 def _render_relationships(items: list[dict]) -> None:
     if not items:
@@ -75,7 +77,6 @@ def _render_relationships(items: list[dict]) -> None:
         html.append("</p>")
     _block("".join(html))
 
-
 def _render_mind_space(items: list[dict]) -> None:
     if not items:
         _block("<h3>Mind Space</h3><p><em>Mind is clear! ✨</em></p>")
@@ -86,7 +87,6 @@ def _render_mind_space(items: list[dict]) -> None:
 # ─── relationship utils ─────────────────────────────────────────────────────
 def _relationship_key(r: dict) -> str:
     return r["name"].strip().lower()
-
 
 def _merge_additive(existing: dict, new: dict) -> dict:
     merged = copy.deepcopy(existing)
@@ -99,7 +99,6 @@ def _merge_additive(existing: dict, new: dict) -> dict:
             merged["notes"].append(note)
     return merged
 
-
 def _diff_conflicts(existing: dict, new: dict) -> Tuple[bool, List[str]]:
     conflicts = []
     if new.get("role") and existing.get("role") and new["role"] != existing["role"]:
@@ -108,7 +107,6 @@ def _diff_conflicts(existing: dict, new: dict) -> Tuple[bool, List[str]]:
         if k in existing.get("details", {}) and existing["details"][k] != v:
             conflicts.append(f"detail:{k}")
     return bool(conflicts), conflicts
-
 
 def _dedup_relationships(rel_list: List[dict]) -> List[dict]:
     """Return one merged entry per person, using chronological order."""
@@ -121,7 +119,6 @@ def _dedup_relationships(rel_list: List[dict]) -> List[dict]:
             result[key] = _merge_additive(result[key], rel)
     return list(result.values())
 
-
 def _rel_label(r: dict) -> str:
     role = r.get("role", "—")
     det = ", ".join(f"{k}:{v}" for k, v in (r.get("details") or {}).items())
@@ -130,11 +127,18 @@ def _rel_label(r: dict) -> str:
 # ─── main ───────────────────────────────────────────────────────────────────
 def main() -> None:
     st.markdown("<h1>ME Journal</h1>", unsafe_allow_html=True)
-    st.date_input("Journal Date", _dt.date.today(), label_visibility="collapsed")
+
+    # pick your journal date
+    selected_date = st.date_input(
+        "Journal Date",
+        _dt.date.today(),
+        label_visibility="collapsed",
+    )
     st.divider()
 
-    # load ALL entries once
-    entries = all_entries()
+    # load only entries for that date
+    entries = entries_by_date(selected_date)
+
     schedule_all = list(
         itertools.chain.from_iterable(e["structured"].get("Schedule", []) for e in entries)
     )
@@ -150,7 +154,7 @@ def main() -> None:
         )
     )
 
-    # ── blocks ─────────────────────────────────────────────────────────────
+    # ── display blocks ────────────────────────────────────────────────────────
     c1, c2, c3 = st.columns(3, gap="large")
     with c1:
         _render_schedule(schedule_all)
@@ -161,7 +165,7 @@ def main() -> None:
 
     st.divider()
 
-    # ── pending clarification state ───────────────────────────────────────
+    # ── Handle pending clarifications for Relationships ──────────────────────
     if st.session_state.get("await_clarify"):
         structured = st.session_state["pending_structured"]
         prompt_txt = st.session_state["pending_prompt"]
@@ -169,7 +173,7 @@ def main() -> None:
 
         st.markdown("#### Resolve conflicts")
         with st.form("clarify_form"):
-            decisions = {}
+            decisions: dict[int, str] = {}
             for idx, info in enumerate(conflicts):
                 new_rel, ex_rel = info["new"], info["existing"]
                 label = (
@@ -186,7 +190,7 @@ def main() -> None:
             confirmed = st.form_submit_button("Confirm")
 
         if confirmed:
-            final_rels = []
+            final_rels: List[dict] = []
             for idx, rel in enumerate(structured["Relationships"]):
                 decision = decisions.get(idx)
                 if decision == "discard":
@@ -196,32 +200,25 @@ def main() -> None:
                 else:  # separate or untouched
                     final_rels.append(rel)
             structured["Relationships"] = final_rels
-            add_entry(prompt_txt, structured)
+            add_entry(prompt_txt, structured, selected_date)
             for k in ("await_clarify", "pending_structured", "pending_prompt", "conflicts"):
                 st.session_state.pop(k, None)
             st.success("Saved!")
             st.rerun()
         return
 
-    # ── Thought Input form ────────────────────────────────────────────────
-    st.markdown("### Thought Input")
+    # ── Thought / Schedule Input form ────────────────────────────────────────
+    st.markdown("### Thought Input / Scheduling")
 
     with st.form("prompt_form"):
         cols = st.columns([8, 2])
-
         prompt = cols[0].text_input(
             label="Thought prompt",
-            placeholder="Reflect on today's achievements…",
+            placeholder="Reflect on today's achievements… or 'At 3pm call Alice'",
             label_visibility="hidden",
         )
-
-        with cols[1]:
-            st.markdown("<br>", unsafe_allow_html=True)
-
-        submitted = cols[1].form_submit_button(
-            label="Submit →",
-            use_container_width=True,
-        )
+        cols[1].markdown("<br>", unsafe_allow_html=True)
+        submitted = cols[1].form_submit_button("Submit →", use_container_width=True)
 
     if submitted:
         if not prompt.strip():
@@ -235,10 +232,10 @@ def main() -> None:
                 st.error(str(exc))
                 st.stop()
 
-        # reconcile relationships vs deduped list
+        # reconcile relationships
         rel_map = {_relationship_key(r): r for r in rels_all}
-        conflicts = []
-        merged_rels = []
+        conflicts: list[dict] = []
+        merged_rels: list[dict] = []
 
         for idx, new_rel in enumerate(structured["Relationships"]):
             key = _relationship_key(new_rel)
@@ -265,7 +262,7 @@ def main() -> None:
             st.rerun()
         else:
             structured["Relationships"] = merged_rels
-            add_entry(prompt, structured)
+            add_entry(prompt, structured, selected_date)
             st.success("Saved!")
             st.rerun()
 
