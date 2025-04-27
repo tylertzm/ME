@@ -19,7 +19,10 @@ class EndEvent(BaseModel):
 class AgentChat:
     def __init__(self) -> None:
         self.end = False
-        self.messages = []
+        self.messages = [Message(
+            role="system",
+            content="You are an AI assistant that creates and execute todos. Eveything the user asks needs to be a todo, that needs to be created and then executed if the user wants to.",
+        )]
 
     @agent.event
     async def messages(self, messages_event: MessagesEvent) -> list[Message]:
