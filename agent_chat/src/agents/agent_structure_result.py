@@ -15,11 +15,6 @@ class EndEvent(BaseModel):
     end: bool
 
 
-class GetMessagesEvent(BaseModel):
-    # Empty model for the GET request
-    messages: list[Message]
-
-
 @agent.defn()
 class AgentStructureResult:
     def __init__(self) -> None:
@@ -79,12 +74,6 @@ class AgentStructureResult:
         else:
             self.messages.append(assistant_message)
             return self.messages
-
-    @agent.event
-    async def get_messages(self, get_messages_event: GetMessagesEvent) -> list[Message]:
-        """Endpoint to retrieve the current messages stored in the agent."""
-        log.info("Received get_messages request")
-        return self.messages
 
     @agent.event
     async def end(self, end: EndEvent) -> EndEvent:
